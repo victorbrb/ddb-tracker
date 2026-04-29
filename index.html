@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>DDB — Portfolio Tracker</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0f0f0f;
+      --bg2: #181818;
+      --bg3: #222222;
+      --border: rgba(255,255,255,0.08);
+      --border2: rgba(255,255,255,0.14);
+      --text: #f0ece4;
+      --muted: rgba(240,236,228,0.45);
+      --accent: #FF6E2B;
+      --accent2: #E0DC76;
+      --mono: 'DM Mono', monospace;
+      --sans: 'DM Sans', sans-serif;
+    }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    header {
+      padding: 1.5rem 2rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky;
+      top: 0;
+      background: var(--bg);
+      z-index: 10;
+    }
+
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-family: var(--mono);
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+
+    .logo-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--accent);
+    }
+
+    .tabs {
+      display: flex;
+      gap: 4px;
+    }
+
+    .tab {
+      padding: 6px 14px;
+      font-size: 12px;
+      font-family: var(--sans);
+      border: 1px solid transparent;
+      border-radius: 6px;
+      cursor: pointer;
+      background: transparent;
+      color: var(--muted);
+      transition: all 0.15s;
+      letter-spacing: 0.02em;
+    }
+
+    .tab:hover { color: var(--text); }
+    .tab.active {
+      background: var(--bg3);
+      border-color: var(--border2);
+      color: var(--text);
+    }
+
+    main { padding: 2rem; max-width: 900px; margin: 0 auto; }
+
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+
+    /* Metrics */
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+      gap: 12px;
+      margin-bottom: 2rem;
+    }
+
+    .metric {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1.1rem 1.25rem;
+    }
+
+    .metric-label {
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 6px;
+      font-family: var(--mono);
+    }
+
+    .metric-value {
+      font-size: 28px;
+      font-weight: 600;
+      color: var(--text);
+      line-height: 1;
+    }
+
+    .metric-value.small { font-size: 16px; padding-top: 4px; }
+
+    /* Cards */
+    .card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    .card-title {
+      font-size: 10px;
+      font-family: var(--mono);
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1.25rem;
+    }
+
+    /* Ranking */
+    .portfolio-row {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      align-items: center;
+      gap: 16px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .portfolio-row:last-child { border-bottom: none; }
+
+    .portfolio-info { min-width: 0; }
+    .portfolio-name { font-size: 14px; font-weight: 500; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .portfolio-url { font-size: 11px; color: var(--muted); font-family: var(--mono); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .portfolio-right { display: flex; align-items: center; gap: 10px; }
+
+    .bar-wrap { width: 100px; height: 4px; background: var(--bg3); border-radius: 2px; overflow: hidden; }
+    .bar-fill { height: 100%; background: var(--accent); border-radius: 2px; transition: width 0.5s ease; }
+
+    .click-count {
+      font-family: var(--mono);
+      font-size: 14px;
+      font-weight: 500;
+      color: var(--text);
+      min-width: 32px;
+      text-align: right;
+    }
+
+    .empty {
+      text-align: center;
+      color: var(--muted);
+      padding: 2.5rem 0;
+      font-size: 13px;
+    }
+
+    /* Chart */
+    .chart-wrap {
+      position: relative;
+      width: 100%;
+      height: 200px;
+    }
+
+    /* Forms */
+    .add-form {
+      display: grid;
+      grid-template-columns: 1fr 1fr auto;
+      gap: 10px;
+      align-items: center;
+    }
+
+    input[type="text"], input[type="password"], select {
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 8px 12px;
+      font-size: 13px;
+      color: var(--text);
+      font-family: var(--sans);
+      width: 100%;
+      transition: border-color 0.15s;
+    }
+
+    input[type="text"]:focus, input[type="password"]:focus, select:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+
+    select { cursor: pointer; }
+    select option { background: var(--bg3); }
+
+    .btn {
+      padding: 8px 16px;
+      border-radius: 8px;
+      border: 1px solid var(--border2);
+      background: transparent;
+      color: var(--text);
+      font-size: 13px;
+      font-family: var(--sans);
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all 0.15s;
+    }
+
+    .btn:hover { background: var(--bg3); border-color: var(--border2); }
+
+    .btn-primary {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+      font-weight: 500;
+    }
+
+    .btn-primary:hover { opacity: 0.88; background: var(--accent); }
+
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+    .delete-btn {
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      font-size: 18px;
+      line-height: 1;
+      padding: 2px 6px;
+      border-radius: 4px;
+      transition: color 0.15s;
+    }
+
+    .delete-btn:hover { color: #f05e5e; }
+
+    /* Manage list */
+    .manage-row {
+      display: grid;
+      grid-template-columns: 1fr auto auto;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .manage-row:last-child { border-bottom: none; }
+
+    /* Install */
+    .step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      margin-bottom: 1.25rem;
+    }
+
+    .step-num {
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: var(--bg3);
+      border: 1px solid var(--border2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 11px;
+      font-family: var(--mono);
+      color: var(--accent);
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+
+    .step-text { font-size: 13px; color: var(--muted); line-height: 1.7; }
+    .step-text b { color: var(--text); font-weight: 500; }
+    .step-text code {
+      background: var(--bg3);
+      border: 1px solid var(--border);
+      padding: 1px 6px;
+      border-radius: 4px;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--accent2);
+    }
+
+    .snippet-box {
+      background: var(--bg);
+      border: 1px solid var(--border2);
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      line-height: 1.8;
+      overflow-x: auto;
+      white-space: pre;
+      margin-bottom: 0.75rem;
+    }
+
+    .snippet-box .hl { color: var(--accent2); }
+    .snippet-box .attr { color: var(--accent); }
+
+    .copy-row { display: flex; justify-content: flex-end; }
+
+    .info-text { font-size: 13px; color: var(--muted); line-height: 1.7; margin-bottom: 1rem; }
+
+    .section-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    /* Password gate */
+    #pw-gate {
+      position: fixed;
+      inset: 0;
+      background: var(--bg);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 100;
+    }
+
+    .pw-box {
+      background: var(--bg2);
+      border: 1px solid var(--border2);
+      border-radius: 14px;
+      padding: 2.5rem 2rem;
+      width: 320px;
+      text-align: center;
+    }
+
+    .pw-logo {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--muted);
+      letter-spacing: 0.1em;
+      margin-bottom: 1.5rem;
+    }
+
+    .pw-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 0.4rem;
+    }
+
+    .pw-sub {
+      font-size: 12px;
+      color: var(--muted);
+      margin-bottom: 1.5rem;
+    }
+
+    .pw-input {
+      width: 100%;
+      margin-bottom: 1rem;
+      text-align: center;
+      letter-spacing: 0.1em;
+    }
+
+    .pw-error {
+      font-size: 12px;
+      color: #f05e5e;
+      margin-top: 0.5rem;
+      min-height: 16px;
+    }
+
+    @media (max-width: 600px) {
+      main { padding: 1rem; }
+      header { padding: 1rem; flex-wrap: wrap; gap: 1rem; }
+      .add-form { grid-template-columns: 1fr 1fr; }
+      .add-form button { grid-column: span 2; }
+      .bar-wrap { width: 60px; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- Password Gate -->
+<div id="pw-gate">
+  <div class="pw-box">
+    <div class="pw-logo">DDB — DESIGN DO BRASIL</div>
+    <div class="pw-title">Portfolio Tracker</div>
+    <div class="pw-sub">Enter your password to continue</div>
+    <input type="password" id="pw-input" class="pw-input" placeholder="••••••••" onkeydown="if(event.key==='Enter') checkPw()" />
+    <button class="btn btn-primary" style="width:100%" onclick="checkPw()">Enter</button>
+    <div class="pw-error" id="pw-error"></div>
+  </div>
+</div>
+
+<!-- App -->
+<div id="app" style="display:none">
+  <header>
+    <div class="logo">
+      <div class="logo-dot"></div>
+      DDB — PORTFOLIO TRACKER
+    </div>
+    <div class="tabs">
+      <button class="tab active" onclick="showTab('dashboard')">Dashboard</button>
+      <button class="tab" onclick="showTab('portfolios')">Portfolios</button>
+      <button class="tab" onclick="showTab('install')">Install</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- Dashboard -->
+    <div id="tab-dashboard" class="tab-panel active">
+      <div class="metrics" id="metrics"></div>
+
+      <div class="card">
+        <div class="section-row">
+          <div class="card-title">clicks by portfolio</div>
+          <button class="btn btn-sm" onclick="clearClicks()">Reset data</button>
+        </div>
+        <div id="ranking-list"></div>
+      </div>
+
+      <div class="card">
+        <div class="card-title" style="margin-bottom:1rem">click trend — last 7 days</div>
+        <div class="chart-wrap">
+          <canvas id="trendChart" role="img" aria-label="Bar chart showing portfolio clicks over the last 7 days"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- Portfolios -->
+    <div id="tab-portfolios" class="tab-panel">
+      <div class="card">
+        <div class="card-title">add a portfolio</div>
+        <p class="info-text">Add each designer you feature on designdobrasil.co. Use the same name in the tracking script on your site.</p>
+        <div class="add-form">
+          <input type="text" id="pf-name" placeholder="Name (e.g. João Silva)" />
+          <input type="text" id="pf-url" placeholder="URL (e.g. joaosilva.com)" />
+          <button class="btn btn-primary" onclick="addPortfolio()">Add</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">tracked portfolios</div>
+        <div id="manage-list"></div>
+      </div>
+    </div>
+
+    <!-- Install -->
+    <div id="tab-install" class="tab-panel">
+      <div class="card">
+        <div class="card-title">how to install on designdobrasil.co</div>
+        <div class="step">
+          <div class="step-num">1</div>
+          <div class="step-text"><b>Paste the script</b> — Copy the script below and add it once inside the <code>&lt;head&gt;</code> tag of your site's HTML.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">2</div>
+          <div class="step-text"><b>Tag each portfolio link</b> — Add <code>data-ddb-portfolio="Name"</code> to every <code>&lt;a&gt;</code> link you want to track. The name must match exactly what you added in the Portfolios tab.</div>
+        </div>
+        <div class="step">
+          <div class="step-num">3</div>
+          <div class="step-text"><b>Open this tracker</b> — Every click on your site gets saved. Open this page to see the stats anytime.</div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">script — paste inside &lt;head&gt; on your site</div>
+        <div class="snippet-box"><span class="hl">&lt;script&gt;</span>
+(function(){
+  function track(){
+    document.querySelectorAll(<span class="attr">'a[data-ddb-portfolio]'</span>).forEach(function(el){
+      if(el._ddb) return;
+      el._ddb = true;
+      el.addEventListener(<span class="attr">'click'</span>, function(){
+        var name = el.getAttribute(<span class="attr">'data-ddb-portfolio'</span>);
+        try {
+          var data = JSON.parse(localStorage.getItem(<span class="attr">'ddb_clicks'</span>)||<span class="attr">'{"clicks":[]}'</span>);
+          data.clicks.push({ name: name, ts: Date.now() });
+          localStorage.setItem(<span class="attr">'ddb_clicks'</span>, JSON.stringify(data));
+        } catch(e){}
+      });
+    });
+  }
+  document.addEventListener(<span class="attr">'DOMContentLoaded'</span>, track);
+  new MutationObserver(track).observe(document.documentElement,{childList:true,subtree:true});
+})();
+<span class="hl">&lt;/script&gt;</span></div>
+        <div class="copy-row">
+          <button class="btn" onclick="copyScript(this)">Copy script</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">example — how to tag a link</div>
+        <div class="snippet-box">&lt;<span class="hl">a</span> <span class="attr">href</span>=<span class="hl">"https://joaosilva.com"</span>
+   <span class="attr">data-ddb-portfolio</span>=<span class="hl">"João Silva"</span>
+   <span class="attr">target</span>=<span class="hl">"_blank"</span>&gt;
+  João Silva
+&lt;/<span class="hl">a</span>&gt;</div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">simulate a click (for testing)</div>
+        <p class="info-text">Test that tracking works before going live:</p>
+        <div style="display:flex; gap:10px; align-items:center;">
+          <select id="test-select" style="flex:1"></select>
+          <button class="btn btn-primary" onclick="testClick()">Simulate click</button>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-title">change password</div>
+        <div style="display:grid; grid-template-columns:1fr auto; gap:10px; align-items:center;">
+          <input type="password" id="new-pw" placeholder="New password" />
+          <button class="btn" onclick="changePw()">Save</button>
+        </div>
+        <div id="pw-msg" style="font-size:12px; color:var(--accent2); margin-top:8px; min-height:16px;"></div>
+      </div>
+    </div>
+  </main>
+</div>
+
+<script>
+  const DEFAULT_PW = 'ddb2024';
+  const LS_PW = 'ddb_password';
+  const LS_PF = 'ddb_portfolios';
+  const LS_CL = 'ddb_clicks';
+
+  let portfolios = [];
+  let clicks = [];
+  let chart = null;
+
+  function getPw() { return localStorage.getItem(LS_PW) || DEFAULT_PW; }
+
+  function checkPw() {
+    const val = document.getElementById('pw-input').value;
+    if (val === getPw()) {
+      document.getElementById('pw-gate').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      loadData();
+      render();
+    } else {
+      document.getElementById('pw-error').textContent = 'Incorrect password.';
+      document.getElementById('pw-input').value = '';
+    }
+  }
+
+  function changePw() {
+    const val = document.getElementById('new-pw').value.trim();
+    if (!val) return;
+    localStorage.setItem(LS_PW, val);
+    document.getElementById('new-pw').value = '';
+    document.getElementById('pw-msg').textContent = 'Password updated!';
+    setTimeout(() => document.getElementById('pw-msg').textContent = '', 2000);
+  }
+
+  function loadData() {
+    try { portfolios = JSON.parse(localStorage.getItem(LS_PF) || '[]'); } catch(e) { portfolios = []; }
+    try { const raw = JSON.parse(localStorage.getItem(LS_CL) || '{"clicks":[]}'); clicks = raw.clicks || []; } catch(e) { clicks = []; }
+  }
+
+  function saveData() {
+    localStorage.setItem(LS_PF, JSON.stringify(portfolios));
+    localStorage.setItem(LS_CL, JSON.stringify({ clicks }));
+  }
+
+  function recordClick(name) {
+    clicks.push({ name, ts: Date.now() });
+    saveData();
+    render();
+  }
+
+  function clearClicks() {
+    if (!confirm('Reset all click data? This cannot be undone.')) return;
+    clicks = [];
+    saveData();
+    render();
+  }
+
+  function getClickCounts() {
+    const map = {};
+    portfolios.forEach(p => map[p.name] = 0);
+    clicks.forEach(c => { map[c.name] = (map[c.name] || 0) + 1; });
+    return map;
+  }
+
+  function getLast7Days() {
+    return Array.from({ length: 7 }, (_, i) => {
+      const d = new Date();
+      d.setDate(d.getDate() - (6 - i));
+      return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+    });
+  }
+
+  function getTrend() {
+    const days = getLast7Days();
+    const counts = days.map(() => 0);
+    const now = new Date();
+    clicks.forEach(c => {
+      const diff = Math.floor((now - new Date(c.ts)) / 86400000);
+      if (diff < 7) counts[6 - diff]++;
+    });
+    return { days, counts };
+  }
+
+  function render() {
+    renderMetrics();
+    renderRanking();
+    renderTrend();
+    renderManage();
+    renderTestSelect();
+  }
+
+  function renderMetrics() {
+    const counts = getClickCounts();
+    const total = clicks.length;
+    const today = clicks.filter(c => new Date(c.ts).toDateString() === new Date().toDateString()).length;
+    const top = Object.entries(counts).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('metrics').innerHTML = `
+      <div class="metric"><div class="metric-label">Total clicks</div><div class="metric-value">${total}</div></div>
+      <div class="metric"><div class="metric-label">Today</div><div class="metric-value">${today}</div></div>
+      <div class="metric"><div class="metric-label">Portfolios</div><div class="metric-value">${portfolios.length}</div></div>
+      <div class="metric"><div class="metric-label">Top portfolio</div><div class="metric-value small">${top ? top[0].split(' ').slice(0,2).join(' ') : '—'}</div></div>
+    `;
+  }
+
+  function renderRanking() {
+    const counts = getClickCounts();
+    const sorted = Object.entries(counts).sort((a,b) => b[1]-a[1]);
+    const max = sorted[0]?.[1] || 1;
+    const el = document.getElementById('ranking-list');
+    if (!sorted.length) { el.innerHTML = '<div class="empty">No portfolios yet — add some in the Portfolios tab.</div>'; return; }
+    el.innerHTML = sorted.map(([name, count], i) => {
+      const pf = portfolios.find(p => p.name === name);
+      const pct = Math.round((count / max) * 100);
+      return `
+        <div class="portfolio-row">
+          <div class="portfolio-info">
+            <div class="portfolio-name">${i+1}. ${name}</div>
+            ${pf?.url ? `<div class="portfolio-url">${pf.url}</div>` : ''}
+          </div>
+          <div class="portfolio-right">
+            <div class="bar-wrap"><div class="bar-fill" style="width:${pct}%"></div></div>
+            <div class="click-count">${count}</div>
+          </div>
+        </div>`;
+    }).join('');
+  }
+
+  function renderTrend() {
+    const { days, counts } = getTrend();
+    if (chart) { chart.destroy(); chart = null; }
+    chart = new Chart(document.getElementById('trendChart'), {
+      type: 'bar',
+      data: {
+        labels: days,
+        datasets: [{
+          label: 'Clicks',
+          data: counts,
+          backgroundColor: '#FF6E2B',
+          borderRadius: 5,
+          barPercentage: 0.55,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+          x: { ticks: { color: 'rgba(240,236,228,0.4)', font: { size: 11, family: 'DM Mono' } }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } },
+          y: { ticks: { color: 'rgba(240,236,228,0.4)', font: { size: 11, family: 'DM Mono' }, stepSize: 1, precision: 0 }, grid: { color: 'rgba(255,255,255,0.05)' }, border: { display: false } }
+        }
+      }
+    });
+  }
+
+  function renderManage() {
+    const counts = getClickCounts();
+    const el = document.getElementById('manage-list');
+    if (!portfolios.length) { el.innerHTML = '<div class="empty">No portfolios added yet.</div>'; return; }
+    el.innerHTML = portfolios.map((p, i) => `
+      <div class="manage-row">
+        <div>
+          <div class="portfolio-name">${p.name}</div>
+          ${p.url ? `<div class="portfolio-url">${p.url}</div>` : ''}
+        </div>
+        <div style="font-family:var(--mono); font-size:13px; color:var(--muted);">${counts[p.name] || 0} clicks</div>
+        <button class="delete-btn" onclick="removePortfolio(${i})" title="Remove">×</button>
+      </div>`
+    ).join('');
+  }
+
+  function renderTestSelect() {
+    const el = document.getElementById('test-select');
+    if (!el) return;
+    el.innerHTML = portfolios.length
+      ? portfolios.map(p => `<option value="${p.name}">${p.name}</option>`).join('')
+      : '<option disabled>Add portfolios first</option>';
+  }
+
+  function addPortfolio() {
+    const name = document.getElementById('pf-name').value.trim();
+    const url = document.getElementById('pf-url').value.trim();
+    if (!name) return;
+    if (portfolios.find(p => p.name === name)) { alert('A portfolio with this name already exists.'); return; }
+    portfolios.push({ name, url });
+    document.getElementById('pf-name').value = '';
+    document.getElementById('pf-url').value = '';
+    saveData();
+    render();
+  }
+
+  function removePortfolio(i) {
+    if (!confirm(`Remove "${portfolios[i].name}"?`)) return;
+    portfolios.splice(i, 1);
+    saveData();
+    render();
+  }
+
+  function testClick() {
+    const sel = document.getElementById('test-select');
+    if (sel?.value) recordClick(sel.value);
+  }
+
+  function copyScript(btn) {
+    const raw = `<script>
+(function(){
+  function track(){
+    document.querySelectorAll('a[data-ddb-portfolio]').forEach(function(el){
+      if(el._ddb) return;
+      el._ddb = true;
+      el.addEventListener('click', function(){
+        var name = el.getAttribute('data-ddb-portfolio');
+        try {
+          var data = JSON.parse(localStorage.getItem('ddb_clicks')||'{"clicks":[]}');
+          data.clicks.push({ name: name, ts: Date.now() });
+          localStorage.setItem('ddb_clicks', JSON.stringify(data));
+        } catch(e){}
+      });
+    });
+  }
+  document.addEventListener('DOMContentLoaded', track);
+  new MutationObserver(track).observe(document.documentElement,{childList:true,subtree:true});
+})();
+<\/script>`;
+    navigator.clipboard.writeText(raw).then(() => {
+      btn.textContent = 'Copied!';
+      setTimeout(() => btn.textContent = 'Copy script', 2000);
+    });
+  }
+
+  function showTab(name) {
+    document.querySelectorAll('.tab-panel').forEach(el => el.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    document.querySelectorAll('.tab')[['dashboard','portfolios','install'].indexOf(name)].classList.add('active');
+  }
+
+  document.getElementById('pw-input').focus();
+</script>
+</body>
+</html>
